@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    <Description>Call Shiny.Actors from another process or device - actors and streams served over Shiny.Net.HttpServer, from a phone if you like.</Description>
+    <PackageTags>actors;remoting;httpserver;maui;aot;shiny</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Shiny.Net.HttpServer" Version="2.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shiny.Actors\Shiny.Actors.csproj" />
+  </ItemGroup>
+
+</Project>

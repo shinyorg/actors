@@ -1,0 +1,147 @@
+@page "/"
+@implements IDisposable
+@inject IActorSystem Actors
+@inject Shiny.Actors.ActorSystem System
+
+<PageTitle>Shiny Actors in the browser</PageTitle>
+
+<main>
+    <h1>Shiny Actors <small>running in WebAssembly</small></h1>
+    <p class="lead">
+        Each list is an event-sourced actor. Its events live in IndexedDB; the list itself is rebuilt from them.
+        Deactivate everything, or reload the page - it comes back.
+    </p>
+
+    <div class="tabs">
+        @foreach (var list in lists)
+        {
+            <button class="@(list == listId ? "active" : "")" @onclick="() => Switch(list)">@list</button>
+        }
+    </div>
+
+    <form @onsubmit="Add">
+        <input @bind="newText" placeholder="What needs doing?" aria-label="New item" />
+        <button type="submit" disabled="@string.IsNullOrWhiteSpace(newText)">Add</button>
+    </form>
+
+    <ul class="items">
+        @foreach (var item in items)
+        {
+            <li class="@(item.Done ? "done" : "")">
+                <label>
+                    <input type="checkbox" checked="@item.Done" @onchange="() => Toggle(item.Id)" />
+                    @item.Text
+                </label>
+                <button class="link" @onclick="() => Remove(item.Id)" aria-label="Remove">✕</button>
+            </li>
+        }
+        @if (items.Length == 0)
+        {
+            <li class="empty">Nothing yet.</li>
+        }
+    </ul>
+
+    <div class="actions">
+        <button @onclick="() => RemindMe(10)">Remind me in 10s</button>
+        <button @onclick="DeactivateAll">Deactivate all actors</button>
+        <span class="muted">active actors: @System.ActivationCount</span>
+    </div>
+
+    @if (toast is not null)
+    {
+        <div class="toast" role="status">@toast</div>
+    }
+
+    <h2>Event history <small>(@history.Length events)</small></h2>
+    <pre class="history">@string.Join("\n", history)</pre>
+</main>
+
+@code {
+    readonly string[] lists = ["home", "work"];
+    string listId = "home";
+    string newText = "";
+    TodoItem[] items = [];
+    string[] history = [];
+    string? toast;
+    CancellationTokenSource? watching;
+
+    ITodoList List => Actors.Get<ITodoList>(listId);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        Watch();
+    }
+
+
+    // a stream drives the UI - anything that changes this list, from anywhere, shows up here
+    void Watch()
+    {
+        watching?.Cancel();
+        watching = new CancellationTokenSource();
+        var token = watching.Token;
+        var stream = Actors.GetStream<TodoChanged>(listId);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var change in stream.ReadAllAsync(token))
+                {
+                    toast = change.What;
+                    await Load();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+
+    async Task Load()
+    {
+        items = await List.Items();
+        history = await List.History();
+    }
+
+
+    async Task Switch(string list)
+    {
+        listId = list;
+        toast = null;
+        await Load();
+        Watch();
+    }
+
+
+    async Task Add()
+    {
+        if (string.IsNullOrWhiteSpace(newText))
+            return;
+
+        await List.Add(newText.Trim());
+        newText = "";
+    }
+
+
+    Task Toggle(int id) => List.Toggle(id);
+    Task Remove(int id) => List.Remove(id);
+
+    async Task RemindMe(int seconds)
+    {
+        await List.RemindMe(seconds);
+        toast = $"reminder set for {seconds}s from now";
+    }
+
+
+    async Task DeactivateAll()
+    {
+        await System.DeactivateAllAsync();
+        toast = "all actors deactivated - the next call rebuilds the list from IndexedDB";
+        await Load();
+    }
+
+
+    public void Dispose() => watching?.Cancel();
+}

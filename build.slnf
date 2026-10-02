@@ -1,0 +1,15 @@
+{
+    "solution": {
+        "path": "Shiny.Actors.slnx",
+        "projects": [
+            "src\\Shiny.Actors\\Shiny.Actors.csproj",
+            "src\\Shiny.Actors.SourceGenerators\\Shiny.Actors.SourceGenerators.csproj",
+            "src\\Shiny.Actors.DocumentDb\\Shiny.Actors.DocumentDb.csproj",
+            "src\\Shiny.Actors.HttpServer\\Shiny.Actors.HttpServer.csproj",
+            "src\\Shiny.Actors.Jobs\\Shiny.Actors.Jobs.csproj",
+            "src\\Shiny.Actors.Notifications\\Shiny.Actors.Notifications.csproj",
+            "src\\Shiny.Actors.Discovery\\Shiny.Actors.Discovery.csproj",
+            "src\\Shiny.Actors.Testing\\Shiny.Actors.Testing.csproj"
+        ]
+    }
+}

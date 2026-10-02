@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Sample.Maui.Pages.RoomPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:actors="clr-namespace:Sample.Maui.Actors">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="16" RowSpacing="10">
+        <Label x:Name="MembersLabel" AutomationId="Members" FontSize="13" TextColor="{AppThemeBinding Light=#6e6e73, Dark=#a1a1a6}" />
+
+        <CollectionView x:Name="Messages" Grid.Row="1" AutomationId="Messages" ItemsUpdatingScrollMode="KeepLastItemInView">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="actors:ChatMessage">
+                    <Label Text="{Binding Display}" Padding="0,6" FontSize="16" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Entry x:Name="MessageEntry" AutomationId="MessageEntry" Placeholder="Message" ReturnType="Send" Completed="OnSend" />
+            <Button Grid.Column="1" AutomationId="Send" Text="Send" Clicked="OnSend" />
+        </Grid>
+
+        <Button Grid.Row="3" AutomationId="RemindMe" Text="Remind me about this room in 1 minute" Clicked="OnRemind"
+                BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#512BD4, Dark=#AC99EA}" />
+    </Grid>
+</ContentPage>

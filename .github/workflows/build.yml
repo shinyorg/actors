@@ -1,0 +1,103 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'warning'
+  push:
+    branches:
+    - main
+    - v*
+    paths-ignore:
+      - 'skills/**'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - 'skills/**'
+      - 'docs/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Nerdbank.GitVersioning appends Git*Version lines to $GITHUB_ENV once per project. With parallel MSBuild (-m) the
+    # worker processes race on that file and tear lines, which the runner then rejects. Nothing here consumes them.
+    #
+    # PublicRelease applies to every step: the Test and AOT steps rebuild the src projects, and anything they packed
+    # would otherwise carry a non-public (1.x.y-g<commit>) version next to the real one.
+    env:
+      NBGV_SetCloudBuildVersionVars: false
+      PublicRelease: true
+
+    permissions:
+      id-token: write   # required for NuGet trusted publishing (OIDC)
+      contents: read
+
+    # macOS: Shiny.Actors.Notifications targets iOS, Android and Mac Catalyst, and the samples include a MAUI app.
+    # EnableWindowsTargeting adds its Windows target too - drop it and the package silently ships without a Windows lib.
+    runs-on: macos-26
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+          fetch-depth: 0   # nbgv computes {height} from full history
+
+    - name: Setup .NET 10.0
+      uses: actions/setup-dotnet@v6
+      with:
+          dotnet-version: '10.0.x'
+          workloads: maui-ios, maui-android, maui-maccatalyst, maui-windows, wasm-tools
+
+    - name: Build
+      run: dotnet build build.slnf /restore -m -property:Configuration=Release -property:EnableWindowsTargeting=true
+
+    # Category=Network is real mDNS over a real LAN interface - not something a CI runner has.
+    # The suite is xunit v3 on the VSTest runner, so trx comes from --logger.
+    - name: Test
+      run: dotnet test tests/Shiny.Actors.Tests/Shiny.Actors.Tests.csproj --configuration Release --filter "Category!=Network" --logger "trx;LogFileName=test-results.trx"
+
+    # always(): the point of these is the run where the Test step failed.
+    - name: Post Test Results
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: test-results
+        path: tests/**/TestResults/*.trx
+        retention-days: 5
+        if-no-files-found: warn
+
+    # The library's promise: zero trim/AOT warnings in a real NativeAOT app (TreatWarningsAsErrors makes any one fatal).
+    - name: Verify Native AOT
+      run: dotnet publish samples/Sample.Console/Sample.Console.csproj -r osx-arm64 --configuration Release
+
+    - name: Build Blazor WebAssembly sample
+      run: dotnet build samples/Sample.Blazor/Sample.Blazor.csproj --configuration Release
+
+    - name: Pack
+      run: dotnet pack build.slnf --configuration Release --no-build -property:EnableWindowsTargeting=true --output artifacts
+
+    - name: Post NuGet Artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: nuget-artifacts
+        path: |
+          artifacts/*.nupkg
+          artifacts/*.snupkg
+        retention-days: 5
+
+    - name: NuGet Login (OIDC)
+      id: nuget-login
+      if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/v')) }}
+      uses: NuGet/login@v1
+      with:
+        user: aritchie
+
+    - name: Publish NuGets
+      if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/v')) }}
+      run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate

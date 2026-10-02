@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Sample.Maui.Pages.NearbyPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:discovery="clr-namespace:Shiny.Actors.Discovery;assembly=Shiny.Actors.Discovery"
+    Title="Nearby">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+            <Label Text="Share your rooms" FontAttributes="Bold" FontSize="18" />
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="Let nearby devices join this device's rooms" VerticalOptions="Center" />
+                <Switch x:Name="ShareSwitch" Grid.Column="1" AutomationId="ShareSwitch" Toggled="OnShareToggled" />
+            </Grid>
+            <Label x:Name="ShareStatus" AutomationId="ShareStatus" FontSize="14" TextColor="{AppThemeBinding Light=#6e6e73, Dark=#a1a1a6}" />
+
+            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#d2d2d7, Dark=#3a3a3c}" />
+
+            <Label Text="Devices nearby" FontAttributes="Bold" FontSize="18" />
+            <Label x:Name="ConnectionLabel" AutomationId="ConnectionLabel" FontSize="14" />
+            <Button x:Name="UseThisDevice" AutomationId="UseThisDevice" Text="Use this device's rooms" Clicked="OnUseThisDevice" IsVisible="False" />
+
+            <CollectionView x:Name="Peers" AutomationId="Peers" SelectionMode="Single" SelectionChanged="OnPeerSelected">
+                <CollectionView.EmptyView>
+                    <Label Text="Looking for devices sharing rooms on this network..." FontSize="14"
+                           TextColor="{AppThemeBinding Light=#6e6e73, Dark=#a1a1a6}" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="discovery:ActorPeer">
+                        <VerticalStackLayout Padding="0,10">
+                            <Label Text="{Binding Name}" FontAttributes="Bold" />
+                            <Label Text="{Binding BaseAddress}" FontSize="13" TextColor="{AppThemeBinding Light=#6e6e73, Dark=#a1a1a6}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
