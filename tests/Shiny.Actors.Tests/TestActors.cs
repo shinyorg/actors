@@ -11,6 +11,8 @@ public sealed class Probe
     public ConcurrentQueue<string> Events { get; } = new();
     public int MaxConcurrent;
     public int ActivationFailuresLeft;
+    public TaskCompletionSource Holding { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource Released { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public void Log(string message) => this.Events.Enqueue(message);
 
@@ -292,12 +294,24 @@ public class GateActor(Probe probe) : Actor, IGate
         return await this.Actors.Get<IGate>(this.Id).Ping(); // while the activation is shutting down
     }
 
-    public async Task Work()
+    public async Task Hold()
+    {
+        probe.Holding.TrySetResult();
+        await probe.Released.Task; // in flight, mostly awaiting, until the test lets it go
+    }
+
+    int arrived;
+    readonly TaskCompletionSource allArrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async Task WorkTogether(int callers)
     {
         using (probe.Enter())
             Thread.Sleep(5);
 
-        await Task.Delay(50);
+        if (Interlocked.Increment(ref this.arrived) == callers)
+            this.allArrived.TrySetResult();
+
+        await this.allArrived.Task; // every call parked here at once - only possible if calls interleave
 
         using (probe.Enter())
             Thread.Sleep(5);
@@ -312,7 +326,8 @@ public interface IGate : IActor
     Task Open(string value);
     Task<string> CallSelf();
     Task<string> Ping();
-    Task Work();
+    Task Hold();
+    Task WorkTogether(int callers);
 }
 
 
