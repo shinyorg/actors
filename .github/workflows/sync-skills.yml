@@ -6,6 +6,7 @@ on:
       - 'v*'
     paths:
       - 'skills/**'
+      - '.github/workflows/sync-skills.yml'
   workflow_dispatch:
 
 jobs:
