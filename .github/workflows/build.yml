@@ -40,7 +40,7 @@ jobs:
 
     # macOS: Shiny.Actors.Notifications targets iOS, Android and Mac Catalyst, and the samples include a MAUI app.
     # EnableWindowsTargeting adds its Windows target too - drop it and the package silently ships without a Windows lib.
-    runs-on: macos-27
+    runs-on: xcode-27
 
     steps:
     - name: Checkout
