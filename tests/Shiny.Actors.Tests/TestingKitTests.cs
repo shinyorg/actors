@@ -34,6 +34,21 @@ public class TestingKitTests
 
 
     [Fact]
+    public async Task Advancing_Time_Runs_Timers_And_Settles()
+    {
+        await using var host = NewHost();
+        var ticker = host.Get<ITicker>();
+        Assert.Equal(0, await ticker.Ticks());   // activates it, which starts its timer
+
+        // each tick is a turn, and the system has to go quiet after every one for this to return
+        await host.AdvanceAsync(TimeSpan.FromSeconds(3));
+        Assert.Equal(3, await ticker.Ticks());
+
+        await host.WaitForQuietAsync(TimeSpan.FromSeconds(1));
+    }
+
+
+    [Fact]
     public async Task Advancing_Time_Runs_Reminders_Without_Waiting_Around()
     {
         await using var host = NewHost();

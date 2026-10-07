@@ -131,27 +131,28 @@ sealed class ActorActivation
         if (item.IsActivity)
             Interlocked.Exchange(ref this.lastActivity, this.System.TimeProvider.GetTimestamp());
 
-        var writer = this.mailbox.Writer;
-        if (!writer.TryWrite(item))
+        // counted before it is written, so the loop can never take it off the mailbox before it was counted
+        this.Enqueued(item);
+        try
         {
-            var written = false;
-            while (!written && await writer.WaitToWriteAsync(cancellationToken).ConfigureAwait(false))
-                written = writer.TryWrite(item);
+            var writer = this.mailbox.Writer;
+            if (writer.TryWrite(item))
+                return true;
 
-            if (!written)
-                return false;
+            while (await writer.WaitToWriteAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (writer.TryWrite(item))
+                    return true;
+            }
+        }
+        catch
+        {
+            this.Dequeued(item);
+            throw;
         }
 
-        if (item is ControlItem)
-        {
-            Interlocked.Increment(ref this.controlQueued);
-        }
-        else
-        {
-            Interlocked.Increment(ref this.queued);
-            ActorTelemetry.Queued.Add(1, this.actorTag);
-        }
-        return true;
+        this.Dequeued(item);
+        return false;
     }
 
 
@@ -161,13 +162,12 @@ sealed class ActorActivation
         if (Volatile.Read(ref this.started) != 1)
             return false;
 
-        if (item is ControlItem)
-            Interlocked.Increment(ref this.controlQueued);
+        // timer ticks come through here too, and the loop counts everything it takes off the mailbox
+        this.Enqueued(item);
         if (this.mailbox.Writer.TryWrite(item))
             return true;
 
-        if (item is ControlItem)
-            Interlocked.Decrement(ref this.controlQueued);
+        this.Dequeued(item);
         return false;
     }
 
@@ -441,6 +441,19 @@ sealed class ActorActivation
                 return true;
 
         return false;
+    }
+
+
+    void Enqueued(MailboxItem item)
+    {
+        if (item is ControlItem)
+        {
+            Interlocked.Increment(ref this.controlQueued);
+            return;
+        }
+
+        Interlocked.Increment(ref this.queued);
+        ActorTelemetry.Queued.Add(1, this.actorTag);
     }
 
 
