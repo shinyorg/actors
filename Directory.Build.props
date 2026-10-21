@@ -9,6 +9,7 @@
         <Product>Shiny.Actors</Product>
 
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Copyright>Copyright (c) $([System.DateTime]::Now.Year) Allan Ritchie</Copyright>
         <RepositoryUrl>https://github.com/shinyorg/actors</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
 
